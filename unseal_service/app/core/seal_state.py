@@ -1,27 +1,43 @@
 from django.core.cache import cache
-from unsealapi.models import SealStaus
-from core.utils import recover_secret
-
-class ProductState:
+from .utils import recover_secret
+from unsealapi.models import SealStatus
+from rest_framework.response import Response
+from .security import generte_wraping_key
+class SecretProduct:
     @staticmethod
     def store_master_key(master_key):
-        cache.set("master_key", master_key, timeout=None)
+        cache.set("master_key",master_key,timeout=None)
 
     @staticmethod
     def get_threshold():
-        return SealStaus.objects.first().threshold
-
+        return SealStatus.objects.first().threshold
+    
     @staticmethod
-    def submit_key(part, threshold):
-        cache_key = "submitted_unseal_keys"
-        submitted_keys = cache.get(cache_key, [])
+    def get_unseal_key():
+        try:
+            master_key = cache.get("master_key")
+            ferent = generte_wraping_key(master_key)
+            unseal_keys = SealStatus.objects.first().unseal_key
+            decrypt_unseal_key = [ferent.decrypt(ecr.encode()).decode() for ecr in unseal_keys]
+            return decrypt_unseal_key
+        except Exception as e:
+            return e
+    
+    @staticmethod
+    def submit_key(key, threshold):
+        cache_key   = "submit_unseal_key"
+        submit_key  = cache.get(cache_key, [])
 
-        if part in submitted_keys:
-            return None
-
-        submitted_keys.append(part)
-        cache.set(cache_key, submitted_keys, timeout=600)
-
-        if len(submitted_keys) >= threshold:
-            return recover_secret(submitted_keys)
+        if key in submit_key:
+            return Response({"detail": "Key already submit"})
+        
+        
+        submit_key.append(key)
+        cache.set(cache_key, submit_key, timeout=600)
+        if len(submit_key) == threshold:
+            cache.set(cache_key,submit_key,timeout=600)
+            return recover_secret(submit_key)
+        elif len(submit_key) > threshold:
+            return Response({"detail": "Secret Solution already Unseal"})
+        
         return None
