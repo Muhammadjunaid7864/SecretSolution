@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import SubmitUnsealKeyView,InitVaultView
+from .views import InitializeProduct,SubmitUnsealKey
 
-app_code = 'unseal'
+app_code = "unseal"
 urlpatterns = [
-    path("init/", InitVaultView.as_view(), name="init_vault"),
-    path('unseal/',SubmitUnsealKeyView.as_view()),
+    path('init/', InitializeProduct.as_view(), name="initialization"),
+    path('unseal/',SubmitUnsealKey.as_view(), name="submit_unseal"),
 ]

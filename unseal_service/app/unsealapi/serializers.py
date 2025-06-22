@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import SealStaus
+from .models import SealStatus
+class SealStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model   = SealStatus
+        fields  = ['threshold','share']
 
 class UnsealKeySerializer(serializers.Serializer):
-    unseal_key = serializers.CharField()
-
-class InitVaultSerializer(serializers.Serializer):
-    total_shares = serializers.IntegerField()
-    threshold = serializers.IntegerField()
+    unseal_key  = serializers.CharField()
