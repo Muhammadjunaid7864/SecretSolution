@@ -54,25 +54,49 @@ class InitializeProduct(CreateAPIView):
             return e
 
 
-class SubmitUnsealKey(CreateAPIView):
-    serializer_class = UnsealKeySerializer
-    def create(self,request, *args, **kwargs):
-        serializer  = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            unseal_key  = serializer.validated_data['unseal_key']
+class SubmitUnsealKey(APIView): 
+    def post(self, request, *args, **kwargs):
+        submit_unseal_keys = cache.get("submit_unseal_key")
+        seal_status = SealStatus.objects.first()
+        if not submit_unseal_keys:
+            seal_status.seal = True
+            seal_status.save()
 
+        if seal_status and not seal_status.seal and  submit_unseal_keys:
+            return Response({"detail": "Secret Solution already unsealed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = UnsealKeySerializer(data=request.data)
+        if serializer.is_valid():
+            unseal_key = serializer.validated_data['unseal_key']
             try:
                 threshold = SecretProduct.get_threshold()
-                unseal_keys = SecretProduct.get_unseal_key()
-                if unseal_key in unseal_keys:
+                
 
-                    result    = SecretProduct.submit_key(unseal_key,threshold)
-                    print(cache.get("master_key"))
-                    if result:
-                        SecretProduct.store_master_key(result)
-                        return Response({"detail": "Vault unsealed successfully."}, status=status.HTTP_200_OK)
+                if submit_unseal_keys and unseal_key in submit_unseal_keys:
+                    return Response({"detail": "Key already submitted."})
+
+                result = SecretProduct.submit_key(unseal_key, threshold)
+
+                if result:
+                    SecretProduct.store_master_key(result)
+                elif not result:
                     return Response({"detail": "Unseal key accepted. Waiting for more."}, status=status.HTTP_202_ACCEPTED)
-                return Response({"detail":"Invalid unseal key"})
+
+                try:
+                    unseal_keys = SecretProduct.get_unseal_key()
+                except Exception:
+                    return Response({"detail": "Invalid unseal key"})
+
+                if set(submit_unseal_keys).issubset(unseal_keys):
+                    seal_status = SealStatus.objects.first()
+                    if seal_status:
+                        seal_status.seal = False
+                        seal_status.save()
+
+                    return Response({"detail": "Vault unsealed successfully."}, status=status.HTTP_200_OK)
+
+                return Response({"detail": "Invalid unseal key"})
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

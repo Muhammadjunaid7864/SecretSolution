@@ -27,17 +27,11 @@ class SecretProduct:
     def submit_key(key, threshold):
         cache_key   = "submit_unseal_key"
         submit_key  = cache.get(cache_key, [])
-
-        if key in submit_key:
-            return Response({"detail": "Key already submit"})
-        
-        
+                
         submit_key.append(key)
         cache.set(cache_key, submit_key, timeout=600)
-        if len(submit_key) == threshold:
+        if len(submit_key) >= threshold:
             cache.set(cache_key,submit_key,timeout=600)
             return recover_secret(submit_key)
-        elif len(submit_key) > threshold:
-            return Response({"detail": "Secret Solution already Unseal"})
         
         return None
