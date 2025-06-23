@@ -147,3 +147,4 @@ CACHES = {
 }
 
 DATABASE_ROUTERS = ['app.routers.ReadWriteRouter']
+
